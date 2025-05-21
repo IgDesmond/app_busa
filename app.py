@@ -149,35 +149,53 @@ if 'votes' not in st.session_state:
     }
 if 'show_results' not in st.session_state:
     st.session_state.show_results = True
+if 'admin_sidebar_visible' not in st.session_state:
+    st.session_state.admin_sidebar_visible = False
+# Removed sidebar_password_attempt as it's no longer needed
 
 # --- App UI ---
 st.title("BellsTech's Student Voting System")
 
-# --- Sidebar for saving/loading results ---
-st.sidebar.title("Results Management")
-
-# Load results button
-if st.sidebar.button("🔄 Load Saved Results"):
-    load_saved_results()
-
-# Save results option
-if st.sidebar.button("💾 Save Results Now"):
-    results_df = save_results()
-    st.sidebar.success("Results saved successfully to:")
-    st.sidebar.info("- election_results.json\n- election_results.csv\n- voted_students.csv")
+# --- Admin Sidebar Access ---
+# Only display sidebar if admin is authenticated
+if st.session_state.get('is_admin', False):
+    admin_sidebar = st.sidebar.container()
     
-    # Display a dataframe showing the current results
-    st.sidebar.dataframe(results_df)
+    # Toggle sidebar visibility for admin
+    if not st.session_state.admin_sidebar_visible:
+        if admin_sidebar.button("Show Admin Panel"):
+            st.session_state.admin_sidebar_visible = True
+            st.rerun()
+    else:
+        admin_sidebar.title("Results Management")
+        
+        # Load results button
+        if admin_sidebar.button("🔄 Load Saved Results"):
+            load_saved_results()
 
-# Excel export button
-if st.sidebar.button("📊 Export to Excel"):
-    excel_data = export_excel()
-    st.sidebar.download_button(
-        label="📥 Download Excel File",
-        data=excel_data,
-        file_name=f"election_results_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        # Save results option
+        if admin_sidebar.button("💾 Save Results Now"):
+            results_df = save_results()
+            admin_sidebar.success("Results saved successfully to:")
+            admin_sidebar.info("- election_results.json\n- election_results.csv\n- voted_students.csv")
+            
+            # Display a dataframe showing the current results
+            admin_sidebar.dataframe(results_df)
+
+        # Excel export button
+        if admin_sidebar.button("📊 Export to Excel"):
+            excel_data = export_excel()
+            admin_sidebar.download_button(
+                label="📥 Download Excel File",
+                data=excel_data,
+                file_name=f"election_results_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        # Hide sidebar button
+        if admin_sidebar.button("Hide Admin Panel"):
+            st.session_state.admin_sidebar_visible = False
+            st.rerun()
 
 # --- Voting Time Check ---
 now = datetime.now()
@@ -229,6 +247,7 @@ with tab1:
                 if admin_pass == "X9@2&!p":
                     st.session_state.authenticated = True
                     st.session_state.is_admin = True
+                    st.session_state.admin_sidebar_visible = True
                     st.rerun()
                 else:
                     st.error("Invalid admin credentials")
@@ -242,6 +261,7 @@ with tab1:
             if st.button("Logout"):
                 st.session_state.authenticated = False
                 st.session_state.is_admin = False
+                st.session_state.admin_sidebar_visible = False
                 st.rerun()
         
         elif has_already_voted(user):
