@@ -226,7 +226,7 @@ with tab1:
         with col2:
             if st.button("Admin Login"):
                 admin_pass = st.text_input("Admin Password:", type="password")
-                if admin_pass == "admin123":
+                if admin_pass == "X9@2&!p":
                     st.session_state.authenticated = True
                     st.session_state.is_admin = True
                     st.rerun()
