@@ -140,7 +140,9 @@ if 'votes' not in st.session_state:
     st.session_state.votes = {
         'President': {'Prince John ANIGBO': 0, 'Covenant Olamigoke OLOWO': 0},
         'Vice President': {'Esther OGUNLEYE': 0, 'Hafsoh K. OGUNNIYI': 0},
+        'General Secretary': {'Churchill OLISA': 0},
         'Assist. General Secretary': {'Frankcleave KASIMANWUNA': 0, 'Ajiserere ODUFISAN': 0, 'George IHEKWABA': 0},
+        'Financial Secretary': {'F\'eyisayo OLATUNJI': 0},
         'Treasurer': {'Okikiimole AKINDUSOYE': 0, 'Pipolooluwa AYO-PONLE': 0},
         'PRO': {'Jocl ATUH': 0, 'Steaadfast ILEOGBEN': 0, 'Victor Folahanmi AKILO': 0, 'Enoch OGUNTOYE': 0},
         'Sports Secretary': {'Nasirudeen Adeshina ALABI': 0, 'Ireoluwa OKE': 0},
@@ -273,37 +275,45 @@ with tab1:
         elif VOTING_START <= now <= VOTING_END:
             st.header("Cast Your Vote")
             
-            # Voting form
-            pres = st.radio("President:", ['Prince John ANIGBO', 'Covenant Olamigoke OLOWO'])
-            vp = st.radio("Vice President:", ['Esther OGUNLEYE', 'Hafsoh K. OGUNNIYI'])
-            ags = st.radio("Assistant General Secretary:", ['Frankcleave KASIMANWUNA', 'Ajiserere ODUFISAN', 'George IHEKWABA'])
-            tre = st.radio("Treasurer:", ['Okikiimole AKINDUSOYE', 'Pipolooluwa AYO-PONLE'])
-            pro = st.radio("PRO:", ['Jocl ATUH', 'Steaadfast ILEOGBEN', 'Victor Folahanmi AKILO', 'Enoch OGUNTOYE'])
-            sport = st.radio("Sports Secretary:", ['Nasirudeen Adeshina ALABI', 'Ireoluwa OKE'])
-            welfare = st.radio("Welfare Secretary:", ['Oluwadunmininu IDOWU', 'Simbiat O. ADUMADEYIN', 'Olamiposi latcefat RAJI'])
-            social = st.radio("Social Secretary:", ['Oluwagbotemi Fatiu ADEBAYO', 'Vivian AGWOILE'])
+            # Voting form with no default values
+            pres = st.radio("President:", ['Prince John ANIGBO', 'Covenant Olamigoke OLOWO'], index=None)
+            vp = st.radio("Vice President:", ['Esther OGUNLEYE', 'Hafsoh K. OGUNNIYI'], index=None)
+            gs = st.radio("General Secretary:", ['Churchill OLISA'], index=None)
+            ags = st.radio("Assistant General Secretary:", ['Frankcleave KASIMANWUNA', 'Ajiserere ODUFISAN', 'George IHEKWABA'], index=None)
+            fs = st.radio("Financial Secretary:", ['F\'eyisayo OLATUNJI'], index=None)
+            tre = st.radio("Treasurer:", ['Okikiimole AKINDUSOYE', 'Pipolooluwa AYO-PONLE'], index=None)
+            pro = st.radio("PRO:", ['Jocl ATUH', 'Steaadfast ILEOGBEN', 'Victor Folahanmi AKILO', 'Enoch OGUNTOYE'], index=None)
+            sport = st.radio("Sports Secretary:", ['Nasirudeen Adeshina ALABI', 'Ireoluwa OKE'], index=None)
+            welfare = st.radio("Welfare Secretary:", ['Oluwadunmininu IDOWU', 'Simbiat O. ADUMADEYIN', 'Olamiposi latcefat RAJI'], index=None)
+            social = st.radio("Social Secretary:", ['Oluwagbotemi Fatiu ADEBAYO', 'Vivian AGWOILE'], index=None)
 
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Submit Vote"):
-                    # Update votes for all positions
-                    st.session_state.votes['President'][pres] += 1
-                    st.session_state.votes['Vice President'][vp] += 1
-                    st.session_state.votes['Assist. General Secretary'][ags] += 1
-                    st.session_state.votes['Treasurer'][tre] += 1
-                    st.session_state.votes['PRO'][pro] += 1
-                    st.session_state.votes['Sports Secretary'][sport] += 1
-                    st.session_state.votes['Welfare Secretary'][welfare] += 1
-                    st.session_state.votes['Social Secretary'][social] += 1
-                    
-                    # Mark as voted
-                    st.session_state.voted.add(user)
-                    
-                    # Auto-save results after each vote
-                    save_results()
-                    
-                    st.success("✅ Vote submitted successfully!")
-                    st.rerun()
+                    # Check if all positions have been voted for
+                    if None in [pres, vp, gs, ags, fs, tre, pro, sport, welfare, social]:
+                        st.error("Please vote for all positions before submitting")
+                    else:
+                        # Update votes for all positions
+                        st.session_state.votes['President'][pres] += 1
+                        st.session_state.votes['Vice President'][vp] += 1
+                        st.session_state.votes['General Secretary'][gs] += 1
+                        st.session_state.votes['Assist. General Secretary'][ags] += 1
+                        st.session_state.votes['Financial Secretary'][fs] += 1
+                        st.session_state.votes['Treasurer'][tre] += 1
+                        st.session_state.votes['PRO'][pro] += 1
+                        st.session_state.votes['Sports Secretary'][sport] += 1
+                        st.session_state.votes['Welfare Secretary'][welfare] += 1
+                        st.session_state.votes['Social Secretary'][social] += 1
+                        
+                        # Mark as voted
+                        st.session_state.voted.add(user)
+                        
+                        # Auto-save results after each vote
+                        save_results()
+                        
+                        st.success("✅ Vote submitted successfully!")
+                        st.rerun()
 
             with col2:
                 if st.button("Logout"):
