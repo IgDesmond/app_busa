@@ -6,10 +6,22 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import os
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 
 # --- Voting Time Settings ---
 VOTING_START = datetime(2025, 5, 20, 9, 0, 0)  # 9:00 AM
 VOTING_END = datetime(2025, 5, 23, 12, 0, 0)   # 12:00 PM
+
+# --- Email Configuration (Update these with your email settings) ---
+EMAIL_CONFIG = {
+    'smtp_server': 'smtp.gmail.com',  # Change to your SMTP server
+    'smtp_port': 587,
+    'sender_email': 'your_email@gmail.com',  # Change to your email
+    'sender_password': 'your_app_password',  # Use app password for Gmail
+}
 
 # --- Helper Functions ---
 def clean_spaces(value):
@@ -22,13 +34,61 @@ def load_voter_data():
         df = pd.read_csv("votersdetails.csv")
         df = df.applymap(clean_spaces)
         df['Mat Number'] = df['Mat Number'].astype(str)
+        # Ensure required columns exist
+        required_columns = ['Mat Number', 'Password', 'Email']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"Missing columns in votersdetails.csv: {', '.join(missing_columns)}")
+            st.info("Please ensure your CSV has columns: Mat Number, Password, Email, and optionally Full Name")
+            return pd.DataFrame({"Mat Number": [], "Password": [], "Email": [], "Full Name": []})
         return df
-    except:
+    except FileNotFoundError:
         st.error("Error loading voter data. Please ensure 'votersdetails.csv' exists.")
-        return pd.DataFrame({"Mat Number": [], "Password": []})
+        return pd.DataFrame({"Mat Number": [], "Password": [], "Email": [], "Full Name": []})
+    except Exception as e:
+        st.error(f"Error loading voter data: {str(e)}")
+        return pd.DataFrame({"Mat Number": [], "Password": [], "Email": [], "Full Name": []})
 
-def has_already_voted(mat_number):
-    return str(mat_number) in st.session_state.voted
+def send_password_email(email, password, name="Student"):
+    """Send password to user's email"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_CONFIG['sender_email']
+        msg['To'] = email
+        msg['Subject'] = "BellsTech Voting System - Password Recovery"
+        
+        body = f"""
+Dear {name},
+
+Your login credentials for the BellsTech Student Voting System:
+
+Email: {email}
+Password: {password}
+
+Please use these credentials to log in and cast your vote.
+
+Voting Period: {VOTING_START.strftime('%B %d, %Y at %I:%M %p')} - {VOTING_END.strftime('%B %d, %Y at %I:%M %p')}
+
+Best regards,
+BellsTech Election Committee
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
+        server.starttls()
+        server.login(EMAIL_CONFIG['sender_email'], EMAIL_CONFIG['sender_password'])
+        text = msg.as_string()
+        server.sendmail(EMAIL_CONFIG['sender_email'], email, text)
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Failed to send email: {str(e)}")
+        return False
+
+def has_already_voted(identifier):
+    """Check if user has voted using either mat number or email"""
+    return str(identifier) in st.session_state.voted
 
 def load_saved_results():
     """Load previously saved election results if they exist"""
@@ -55,7 +115,7 @@ def save_results():
     results_df.to_csv('election_results.csv')
     
     # Save list of voters who have voted
-    voted_df = pd.DataFrame({'Matriculation Number': list(st.session_state.voted)})
+    voted_df = pd.DataFrame({'Identifier': list(st.session_state.voted)})
     voted_df.to_csv('voted_students.csv', index=False)
     
     return results_df
@@ -70,7 +130,7 @@ def export_excel():
         results_df.to_excel(writer, sheet_name='Results')
         
         # Participation sheet
-        voted_df = pd.DataFrame({'Matriculation Number': list(st.session_state.voted), 'Status': 'Voted'})
+        voted_df = pd.DataFrame({'Identifier': list(st.session_state.voted), 'Status': 'Voted'})
         voted_df.to_excel(writer, sheet_name='Voted Students', index=False)
         
         # Summary sheet
@@ -129,6 +189,30 @@ def display_results():
         st.pyplot(fig)
         plt.close(fig)  # Close to free memory
 
+def authenticate_user(email, password):
+    """Authenticate user with email and password"""
+    if st.session_state.voter_df.empty:
+        return False, "No voter data available"
+    
+    # Check if email exists
+    email_exists = (st.session_state.voter_df['Email'].str.lower() == email.lower()).any()
+    
+    if not email_exists:
+        return False, "Email not found in voter database"
+    
+    # Get user record
+    user_record = st.session_state.voter_df[st.session_state.voter_df['Email'].str.lower() == email.lower()].iloc[0]
+    
+    # Verify password
+    if user_record['Password'] != password:
+        return False, "Incorrect password"
+    
+    # Check if already voted
+    if has_already_voted(email) or has_already_voted(user_record['Mat Number']):
+        return False, "You have already voted"
+    
+    return True, user_record
+
 # --- Initialize Session State ---
 if 'voter_df' not in st.session_state:
     st.session_state.voter_df = load_voter_data()
@@ -153,17 +237,16 @@ if 'show_results' not in st.session_state:
     st.session_state.show_results = True
 if 'admin_sidebar_visible' not in st.session_state:
     st.session_state.admin_sidebar_visible = False
-# Removed sidebar_password_attempt as it's no longer needed
+if 'show_password_recovery' not in st.session_state:
+    st.session_state.show_password_recovery = False
 
 # --- App UI ---
 st.title("BellsTech's Student Voting System")
 
 # --- Admin Sidebar Access ---
-# Only display sidebar if admin is authenticated
 if st.session_state.get('is_admin', False):
     admin_sidebar = st.sidebar.container()
     
-    # Toggle sidebar visibility for admin
     if not st.session_state.admin_sidebar_visible:
         if admin_sidebar.button("Show Admin Panel"):
             st.session_state.admin_sidebar_visible = True
@@ -180,8 +263,6 @@ if st.session_state.get('is_admin', False):
             results_df = save_results()
             admin_sidebar.success("Results saved successfully to:")
             admin_sidebar.info("- election_results.json\n- election_results.csv\n- voted_students.csv")
-            
-            # Display a dataframe showing the current results
             admin_sidebar.dataframe(results_df)
 
         # Excel export button
@@ -217,42 +298,88 @@ with tab1:
     # Authentication section
     if not st.session_state.authenticated:
         st.header("Voter Authentication")
-        mat_number = st.text_input("Matriculation Number:").strip()
-        password = st.text_input("Password:", type="password")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Login"):
-                if not mat_number or not password:
-                    st.error("Please enter both Matriculation Number and Password")
-                else:
-                    # Check if matriculation number exists
-                    mat_exists = (st.session_state.voter_df['Mat Number'] == mat_number).any()
-                    
-                    if not mat_exists:
-                        st.error("Invalid Matriculation Number")
-                    else:
-                        # Verify password
-                        user_record = st.session_state.voter_df[st.session_state.voter_df['Mat Number'] == mat_number].iloc[0]
-                        if user_record['Password'] != password:
-                            st.error("Incorrect Password")
-                        elif has_already_voted(mat_number):
-                            st.error("You have already voted")
-                        else:
-                            st.session_state.authenticated = True
-                            st.session_state.current_user = mat_number
-                            st.rerun()
-        
+        # Toggle between login and password recovery
+        col1, col2 = st.columns([3, 1])
         with col2:
-            if st.button("Admin Login"):
-                admin_pass = st.text_input("Admin Password:", type="password")
-                if admin_pass == "X9@2&!p":
-                    st.session_state.authenticated = True
-                    st.session_state.is_admin = True
-                    st.session_state.admin_sidebar_visible = True
+            if st.button("Forgot Password?"):
+                st.session_state.show_password_recovery = not st.session_state.show_password_recovery
+                st.rerun()
+        
+        if st.session_state.show_password_recovery:
+            # Password Recovery Section
+            st.subheader("Password Recovery")
+            st.info("Enter your email address to receive your password")
+            
+            recovery_email = st.text_input("Email Address:", key="recovery_email").strip().lower()
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Send Password"):
+                    if not recovery_email:
+                        st.error("Please enter your email address")
+                    else:
+                        # Check if email exists in database
+                        if st.session_state.voter_df.empty:
+                            st.error("Voter database not available")
+                        else:
+                            user_match = st.session_state.voter_df[
+                                st.session_state.voter_df['Email'].str.lower() == recovery_email
+                            ]
+                            
+                            if user_match.empty:
+                                st.error("Email not found in voter database")
+                            else:
+                                user_record = user_match.iloc[0]
+                                name = user_record.get('Full Name', 'Student')
+                                password = user_record['Password']
+                                
+                                # Try to send email
+                                if send_password_email(recovery_email, password, name):
+                                    st.success("Password sent to your email address!")
+                                    st.info("Please check your email and return to login")
+                                else:
+                                    st.error("Failed to send email. Please contact the administrator.")
+                                    # Show password directly if email fails
+                                    st.warning(f"Your password is: **{password}**")
+            
+            with col2:
+                if st.button("Back to Login"):
+                    st.session_state.show_password_recovery = False
                     st.rerun()
-                else:
-                    st.error("Invalid admin credentials")
+        
+        else:
+            # Login Section
+            st.subheader("Login with Email")
+            email = st.text_input("Email Address:").strip().lower()
+            password = st.text_input("Password:", type="password")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Login"):
+                    if not email or not password:
+                        st.error("Please enter both email and password")
+                    else:
+                        success, result = authenticate_user(email, password)
+                        if success:
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = email
+                            st.session_state.current_user_record = result
+                            st.success(f"Welcome, {result.get('Full Name', 'Student')}!")
+                            st.rerun()
+                        else:
+                            st.error(result)
+            
+            with col2:
+                if st.button("Admin Login"):
+                    admin_pass = st.text_input("Admin Password:", type="password", key="admin_pass")
+                    if admin_pass == "X9@2&!p":
+                        st.session_state.authenticated = True
+                        st.session_state.is_admin = True
+                        st.session_state.admin_sidebar_visible = True
+                        st.rerun()
+                    elif admin_pass:  # Only show error if password was entered
+                        st.error("Invalid admin credentials")
     
     # Voting section
     else:
@@ -275,13 +402,18 @@ with tab1:
         elif VOTING_START <= now <= VOTING_END:
             st.header("Cast Your Vote")
             
+            # Show user info
+            user_record = st.session_state.get('current_user_record', {})
+            if user_record is not None and not user_record.empty:
+                st.info(f"Voting as: {user_record.get('Full Name', 'Student')} ({user_record.get('Mat Number', 'N/A')})")
+            
             # Voting form with no default values
             pres = st.radio("President:", ['Prince John ANIGBO', 'Covenant Olamigoke OLOWO'], index=None)
             vp = st.radio("Vice President:", ['Esther OGUNLEYE', 'Hafsoh K. OGUNNIYI'], index=None)
             gs = st.radio("General Secretary:", ['Churchill OLISA'], index=None)
             ags = st.radio("Assistant General Secretary:", ['Frankcleave KASIMANWUNA', 'Ajiserere ODUFISAN', 'George IHEKWABA'], index=None)
             fs = st.radio("Financial Secretary:", ['F\'eyisayo OLATUNJI'], index=None)
-            tre = st.radio("Treasurer:", ['Okikiimole AKINDUSOYE', 'Pipolooluwa AYO-PONLE'], index=None)
+            tre = st.radio("Treasurer:", ['Pipolooluwa AYO-PONLE'], index=None)
             pro = st.radio("PRO:", ['Jocl ATUH', 'Steaadfast ILEOGBEN', 'Victor Folahanmi AKILO', 'Enoch OGUNTOYE'], index=None)
             sport = st.radio("Sports Secretary:", ['Nasirudeen Adeshina ALABI', 'Ireoluwa OKE'], index=None)
             welfare = st.radio("Welfare Secretary:", ['Oluwadunmininu IDOWU', 'Simbiat O. ADUMADEYIN', 'Olamiposi latcefat RAJI'], index=None)
@@ -306,8 +438,11 @@ with tab1:
                         st.session_state.votes['Welfare Secretary'][welfare] += 1
                         st.session_state.votes['Social Secretary'][social] += 1
                         
-                        # Mark as voted
-                        st.session_state.voted.add(user)
+                        # Mark as voted (use both email and mat number to prevent duplicate voting)
+                        st.session_state.voted.add(user)  # email
+                        user_record = st.session_state.get('current_user_record', {})
+                        if user_record is not None and not user_record.empty:
+                            st.session_state.voted.add(user_record.get('Mat Number', ''))
                         
                         # Auto-save results after each vote
                         save_results()
@@ -341,3 +476,33 @@ with tab2:
         display_results()
     else:
         st.warning("Results are only available after voting or to administrators.")
+
+# --- Instructions for Setup ---
+if st.session_state.voter_df.empty:
+    st.error("⚠️ Setup Required")
+    st.markdown("""
+    ### Setup Instructions:
+    
+    1. **Create votersdetails.csv** with the following columns:
+       - `Mat Number`: Student matriculation number
+       - `Password`: Student password
+       - `Email`: Student email address
+       - `Full Name`: Student full name (optional)
+    
+    2. **Configure Email Settings** (in EMAIL_CONFIG):
+       - Update `sender_email` with your email
+       - Update `sender_password` with your app password
+       - Update `smtp_server` if not using Gmail
+    
+    3. **For Gmail users:**
+       - Enable 2-factor authentication
+       - Generate an app password for this application
+       - Use the app password, not your regular password
+    
+    Example CSV format:
+    ```
+    Mat Number,Password,Email,Full Name
+    STU001,pass123,student1@university.edu,John Doe
+    STU002,pass456,student2@university.edu,Jane Smith
+    ```
+    """)
