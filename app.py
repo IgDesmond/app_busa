@@ -1735,7 +1735,7 @@ import time
 
 
 # --- Voting Time Settings ---
-VOTING_START = datetime(2025, 5, 23, 10, 0, 0)  # 9:00 AM
+VOTING_START = datetime(2025, 5, 23, 9, 0, 0)  # 9:00 AM
 VOTING_END = datetime(2025, 5, 23, 14, 0, 0)   # 12:00 PM
 
 # --- Auto-logout Settings ---
