@@ -12,8 +12,8 @@ from email.mime.multipart import MIMEMultipart
 
 
 # --- Voting Time Settings ---
-VOTING_START = datetime(2025, 5, 20, 9, 0, 0)  # 9:00 AM
-VOTING_END = datetime(2025, 5, 23, 12, 0, 0)   # 12:00 PM
+VOTING_START = datetime(2025, 5, 23, 9, 0, 0)  # 9:00 AM
+VOTING_END = datetime(2025, 5, 23, 13, 0, 0)   # 12:00 PM
 
 # --- Email Configuration (Update these with your email settings) ---
 EMAIL_CONFIG = {
