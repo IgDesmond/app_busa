@@ -1,0 +1,50 @@
+{
+  "votes": {
+    "President": {
+      "Prince John ANIGBO": 1,
+      "Covenant Olamigoke OLOWO": 0
+    },
+    "Vice President": {
+      "Esther OGUNLEYE": 1,
+      "Hafsoh K. OGUNNIYI": 0
+    },
+    "General Secretary": {
+      "Churchill OLISA": 1
+    },
+    "Assist. General Secretary": {
+      "Frankcleave KASIMANWUNA": 0,
+      "Ajiserere ODUFISAN": 1,
+      "George IHEKWABA": 0
+    },
+    "Financial Secretary": {
+      "F'eyisayo OLATUNJI": 1
+    },
+    "Treasurer": {
+      "Okikiimole AKINDUSOYE": 1
+    },
+    "PRO": {
+      "Joel ATUH": 0,
+      "Steaadfast ILEOGBEN": 1,
+      "Victor Folahanmi AKILO": 0,
+      "Enoch OGUNTOYE": 0
+    },
+    "Sports Secretary": {
+      "Nasirudeen Adeshina ALABI": 1,
+      "Ireoluwa OKE": 0
+    },
+    "Welfare Secretary": {
+      "Oluwadunmininu IDOWU": 0,
+      "Simbiat O. ADUMADEYIN": 1,
+      "Olamiposi latcefat RAJI": 0
+    },
+    "Social Secretary": {
+      "Oluwagbotemi Fatiu ADEBAYO": 1,
+      "Vivian AGWOILE": 0
+    }
+  },
+  "voted": [
+    "2019/8240",
+    "babatunde.idowu@pzcussons.com"
+  ],
+  "timestamp": "2025-05-23 13:44:59"
+}
